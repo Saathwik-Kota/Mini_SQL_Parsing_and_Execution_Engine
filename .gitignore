@@ -1,0 +1,31 @@
+# Compiled object files and libraries
+*.o
+*.obj
+*.so
+*.dylib
+*.a
+
+# Executables
+mini_sql
+mini_sql.exe
+build/
+
+# Database data files and indexes
+*.dat
+*.idx
+*.db
+*.log
+
+# Debug symbols and core dumps
+*.dSYM/
+core
+core.*
+
+# IDE, Tooling, and Compilation Databases
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+compile_commands.json
+.clangd/
+.cache/
