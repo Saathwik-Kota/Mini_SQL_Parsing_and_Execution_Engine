@@ -124,7 +124,7 @@ Empirical performance evaluation comparing Sequential Table Scans against B+ Tre
 | 250,000      | 36.980 ms            | 2,995              | 0.009 ms                | 1                | 3,934.0x faster|
 
 ### Key Takeaways
-1. **Algorithmic Complexity**: Sequential scan latency scales linearly ($O(N)$), whereas B+ Tree lookup latency remains nearly flat ($O(\log N)$) across all orders of magnitude.
+1. **Algorithmic Complexity**: Sequential scan latency scales linearly (O(N)), whereas B+ Tree lookup latency remains nearly flat (O(log N)) across all orders of magnitude.
 2. **Buffer Efficiency**: Sequential scan requires sweeping the entire table heap (2,995 pages for 250,000 rows), inducing buffer churn. Index scan requires accessing only the specific leaf page matching the target key.
 3. **Throughput**: Bulk tuple insertion into slotted pages with concurrent B+ Tree indexing exceeds 1.5 million tuples per second.
 
