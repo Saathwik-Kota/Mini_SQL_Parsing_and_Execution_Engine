@@ -54,9 +54,8 @@ struct plan_node_t {
         struct {
             bool has_group_by;
             char group_col[MAX_COLUMN_NAME];
-            proj_type_t agg_type;
-            char agg_col[MAX_COLUMN_NAME];
-            char alias[MAX_COLUMN_NAME];
+            uint32_t num_projections;
+            projection_item_t projections[MAX_COLUMNS];
         } aggregate;
 
         struct {

@@ -8,6 +8,8 @@
 # Executables
 mini_sql
 mini_sql.exe
+test_suite
+test_suite.exe
 build/
 
 # Database data files and indexes

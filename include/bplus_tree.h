@@ -42,6 +42,7 @@ void bplus_tree_destroy(bplus_tree_t* tree);
 
 /* B+ Tree Search */
 bool bplus_tree_search(const bplus_tree_t* tree, int64_t key, rid_t* out_rid);
+size_t bplus_tree_find_all(const bplus_tree_t* tree, int64_t key, rid_t** out_rids);
 size_t bplus_tree_range_scan(const bplus_tree_t* tree, int64_t min_key, int64_t max_key, rid_t* out_rids, size_t max_results);
 
 /* B+ Tree Mutation */

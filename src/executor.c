@@ -82,12 +82,7 @@ static void index_scan_init(executor_t* self) {
     st->cursor = 0;
 
     if (st->table->has_index && st->table->index) {
-        rid_t r;
-        if (bplus_tree_search(st->table->index, st->target_key, &r)) {
-            st->rids = (rid_t*)malloc(sizeof(rid_t));
-            st->rids[0] = r;
-            st->num_rids = 1;
-        }
+        st->num_rids = bplus_tree_find_all(st->table->index, st->target_key, &st->rids);
     }
 }
 
@@ -313,16 +308,16 @@ static void sort_close(executor_t* self) {
 /* ==================== AGGREGATE EXECUTOR ==================== */
 typedef struct {
     value_t key;
-    int64_t count;
-    int64_t sum;
+    int64_t agg_values[MAX_COLUMNS];
 } agg_group_t;
 
 typedef struct {
     executor_t* child;
     bool has_group_by;
     int group_col_idx;
-    proj_type_t agg_type;
-    int agg_col_idx;
+    uint32_t num_projections;
+    projection_item_t projections[MAX_COLUMNS];
+    int col_indices[MAX_COLUMNS];
     agg_group_t groups[512];
     size_t num_groups;
     size_t cursor;
@@ -335,9 +330,10 @@ static void aggregate_init(executor_t* self) {
 
     if (!st->has_group_by) {
         st->num_groups = 1;
-        st->groups[0].count = 0;
-        st->groups[0].sum = 0;
         st->groups[0].key = value_make_null(TYPE_INT);
+        for (uint32_t p = 0; p < st->num_projections; p++) {
+            st->groups[0].agg_values[p] = 0;
+        }
     }
 
     st->child->init(st->child);
@@ -345,7 +341,9 @@ static void aggregate_init(executor_t* self) {
     while (st->child->next(st->child, &t)) {
         size_t group_idx = 0;
         if (st->has_group_by) {
-            value_t key = t.values[st->group_col_idx];
+            value_t key = (st->group_col_idx >= 0 && (uint32_t)st->group_col_idx < t.num_values)
+                          ? t.values[st->group_col_idx]
+                          : value_make_null(TYPE_INT);
             bool found = false;
             for (size_t i = 0; i < st->num_groups; i++) {
                 if (value_compare(&st->groups[i].key, &key) == 0) {
@@ -357,14 +355,21 @@ static void aggregate_init(executor_t* self) {
             if (!found && st->num_groups < 512) {
                 group_idx = st->num_groups++;
                 st->groups[group_idx].key = key;
-                st->groups[group_idx].count = 0;
-                st->groups[group_idx].sum = 0;
+                for (uint32_t p = 0; p < st->num_projections; p++) {
+                    st->groups[group_idx].agg_values[p] = 0;
+                }
             }
         }
 
-        st->groups[group_idx].count++;
-        if (st->agg_type == PROJ_AGG_SUM && st->agg_col_idx >= 0) {
-            st->groups[group_idx].sum += t.values[st->agg_col_idx].int_val;
+        for (uint32_t p = 0; p < st->num_projections; p++) {
+            if (st->projections[p].type == PROJ_AGG_COUNT) {
+                st->groups[group_idx].agg_values[p]++;
+            } else if (st->projections[p].type == PROJ_AGG_SUM) {
+                int col = st->col_indices[p];
+                if (col >= 0 && (uint32_t)col < t.num_values) {
+                    st->groups[group_idx].agg_values[p] += t.values[col].int_val;
+                }
+            }
         }
     }
     st->child->close(st->child);
@@ -374,15 +379,13 @@ static bool aggregate_next(executor_t* self, tuple_t* out_tuple) {
     aggregate_state_t* st = (aggregate_state_t*)self->state;
     if (st->cursor < st->num_groups) {
         size_t idx = st->cursor++;
-        int64_t agg_val = (st->agg_type == PROJ_AGG_SUM) ? st->groups[idx].sum : st->groups[idx].count;
-
-        if (st->has_group_by) {
-            out_tuple->num_values = 2;
-            out_tuple->values[0] = st->groups[idx].key;
-            out_tuple->values[1] = value_make_int(agg_val);
-        } else {
-            out_tuple->num_values = 1;
-            out_tuple->values[0] = value_make_int(agg_val);
+        out_tuple->num_values = st->num_projections;
+        for (uint32_t p = 0; p < st->num_projections; p++) {
+            if (st->projections[p].type == PROJ_COLUMN) {
+                out_tuple->values[p] = st->groups[idx].key;
+            } else {
+                out_tuple->values[p] = value_make_int(st->groups[idx].agg_values[p]);
+            }
         }
         return true;
     }
@@ -634,8 +637,15 @@ executor_t* executor_create(catalog_t* catalog, const plan_node_t* plan) {
             st->has_group_by = plan->aggregate.has_group_by;
             st->group_col_idx = plan->aggregate.has_group_by ?
                                 schema_get_column_index(&st->child->schema, plan->aggregate.group_col) : -1;
-            st->agg_type = plan->aggregate.agg_type;
-            st->agg_col_idx = schema_get_column_index(&st->child->schema, plan->aggregate.agg_col);
+            st->num_projections = plan->aggregate.num_projections;
+            for (uint32_t p = 0; p < st->num_projections; p++) {
+                st->projections[p] = plan->aggregate.projections[p];
+                if (st->projections[p].type == PROJ_AGG_SUM || st->projections[p].type == PROJ_AGG_COUNT) {
+                    st->col_indices[p] = schema_get_column_index(&st->child->schema, st->projections[p].column_name);
+                } else {
+                    st->col_indices[p] = schema_get_column_index(&st->child->schema, st->projections[p].column_name);
+                }
+            }
             exec->state = st;
             exec->init = aggregate_init;
             exec->next = aggregate_next;

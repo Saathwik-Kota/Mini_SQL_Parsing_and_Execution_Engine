@@ -134,16 +134,9 @@ static plan_node_t* plan_select(catalog_t* catalog, const select_stmt_t* stmt) {
 
     /* Check for Aggregation */
     bool has_agg = false;
-    proj_type_t agg_type = PROJ_ALL;
-    char agg_col[MAX_COLUMN_NAME] = {0};
-    char agg_alias[MAX_COLUMN_NAME] = {0};
-
     for (uint32_t i = 0; i < stmt->num_projections; i++) {
         if (stmt->projections[i].type == PROJ_AGG_COUNT || stmt->projections[i].type == PROJ_AGG_SUM) {
             has_agg = true;
-            agg_type = stmt->projections[i].type;
-            safe_strcpy(agg_col, stmt->projections[i].column_name, MAX_COLUMN_NAME);
-            safe_strcpy(agg_alias, stmt->projections[i].alias, MAX_COLUMN_NAME);
             break;
         }
     }
@@ -155,30 +148,37 @@ static plan_node_t* plan_select(catalog_t* catalog, const select_stmt_t* stmt) {
         if (stmt->has_group_by) {
             safe_strcpy(agg_node->aggregate.group_col, stmt->group_by_col, MAX_COLUMN_NAME);
         }
-        agg_node->aggregate.agg_type = agg_type;
-        safe_strcpy(agg_node->aggregate.agg_col, agg_col, MAX_COLUMN_NAME);
-        safe_strcpy(agg_node->aggregate.alias, agg_alias, MAX_COLUMN_NAME);
+        agg_node->aggregate.num_projections = stmt->num_projections;
+        for (uint32_t i = 0; i < stmt->num_projections; i++) {
+            agg_node->aggregate.projections[i] = stmt->projections[i];
+        }
 
         schema_t agg_schema;
-        agg_schema.num_columns = 0;
-        if (stmt->has_group_by) {
-            column_t* c0 = &agg_schema.columns[agg_schema.num_columns++];
-            safe_strcpy(c0->name, stmt->group_by_col, MAX_COLUMN_NAME);
-            int idx = schema_get_column_index(&root->output_schema, stmt->group_by_col);
-            c0->type = (idx >= 0) ? root->output_schema.columns[idx].type : TYPE_INT;
-            c0->max_len = MAX_VARCHAR_LEN;
-        }
+        agg_schema.num_columns = stmt->num_projections;
+        for (uint32_t i = 0; i < stmt->num_projections; i++) {
+            column_t* c = &agg_schema.columns[i];
+            const char* col_name = stmt->projections[i].column_name;
+            const char* alias = stmt->projections[i].alias;
 
-        column_t* c_agg = &agg_schema.columns[agg_schema.num_columns++];
-        if (agg_alias[0] != '\0') {
-            safe_strcpy(c_agg->name, agg_alias, MAX_COLUMN_NAME);
-        } else {
-            snprintf(c_agg->name, sizeof(c_agg->name), "%s(%s)",
-                     agg_type == PROJ_AGG_COUNT ? "COUNT" : "SUM",
-                     agg_col[0] != '\0' ? agg_col : "*");
+            if (alias[0] != '\0') {
+                safe_strcpy(c->name, alias, MAX_COLUMN_NAME);
+            } else if (stmt->projections[i].type == PROJ_AGG_COUNT) {
+                snprintf(c->name, sizeof(c->name), "COUNT(%s)", col_name[0] ? col_name : "*");
+            } else if (stmt->projections[i].type == PROJ_AGG_SUM) {
+                snprintf(c->name, sizeof(c->name), "SUM(%s)", col_name);
+            } else {
+                safe_strcpy(c->name, col_name, MAX_COLUMN_NAME);
+            }
+
+            if (stmt->projections[i].type == PROJ_COLUMN) {
+                int idx = schema_get_column_index(&root->output_schema, col_name);
+                c->type = (idx >= 0) ? root->output_schema.columns[idx].type : TYPE_INT;
+                c->max_len = (idx >= 0) ? root->output_schema.columns[idx].max_len : MAX_VARCHAR_LEN;
+            } else {
+                c->type = TYPE_INT;
+                c->max_len = sizeof(int64_t);
+            }
         }
-        c_agg->type = TYPE_INT;
-        c_agg->max_len = sizeof(int64_t);
 
         agg_node->output_schema = agg_schema;
         root = agg_node;
@@ -339,15 +339,21 @@ void plan_explain(const plan_node_t* plan, int indent) {
             printf("-> NestedLoopJoin: (Join Condition)\n");
             break;
         case PLAN_AGGREGATE:
+            printf("-> Aggregate: [");
+            for (uint32_t i = 0; i < plan->aggregate.num_projections; i++) {
+                if (i > 0) printf(", ");
+                if (plan->aggregate.projections[i].type == PROJ_AGG_COUNT) {
+                    printf("COUNT(%s)", plan->aggregate.projections[i].column_name[0] ? plan->aggregate.projections[i].column_name : "*");
+                } else if (plan->aggregate.projections[i].type == PROJ_AGG_SUM) {
+                    printf("SUM(%s)", plan->aggregate.projections[i].column_name);
+                } else {
+                    printf("%s", plan->aggregate.projections[i].column_name);
+                }
+            }
             if (plan->aggregate.has_group_by) {
-                printf("-> Aggregate: [%s(%s)] GROUP BY [%s]\n",
-                       plan->aggregate.agg_type == PROJ_AGG_COUNT ? "COUNT" : "SUM",
-                       plan->aggregate.agg_col[0] ? plan->aggregate.agg_col : "*",
-                       plan->aggregate.group_col);
+                printf("] GROUP BY [%s]\n", plan->aggregate.group_col);
             } else {
-                printf("-> Aggregate: [%s(%s)]\n",
-                       plan->aggregate.agg_type == PROJ_AGG_COUNT ? "COUNT" : "SUM",
-                       plan->aggregate.agg_col[0] ? plan->aggregate.agg_col : "*");
+                printf("]\n");
             }
             break;
         case PLAN_SORT:

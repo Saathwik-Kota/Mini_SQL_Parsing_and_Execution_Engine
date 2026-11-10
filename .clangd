@@ -6,3 +6,4 @@ CompileFlags:
     - -isystem
     - C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.2.0/include
     - --target=x86_64-w64-windows-gnu
+    - -Wno-builtin-definition

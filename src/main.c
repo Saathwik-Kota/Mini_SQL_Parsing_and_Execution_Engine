@@ -12,23 +12,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-
-#if defined(_WIN32)
-#include <windows.h>
-static double get_time_ms(void) {
-    LARGE_INTEGER freq, counter;
-    QueryPerformanceFrequency(&freq);
-    QueryPerformanceCounter(&counter);
-    return ((double)counter.QuadPart * 1000.0) / (double)freq.QuadPart;
-}
-#else
 #include <time.h>
+
 static double get_time_ms(void) {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (double)ts.tv_sec * 1000.0 + (double)ts.tv_nsec / 1000000.0;
+    return ((double)clock() * 1000.0) / (double)CLOCKS_PER_SEC;
 }
-#endif
 
 static void print_table_result(const schema_t* schema, tuple_t* tuples, size_t count, double time_ms, double hit_rate) {
     if (schema->num_columns == 0) {
@@ -349,6 +337,7 @@ static void print_help(void) {
     printf("  .stats                Show Buffer Pool Manager statistics and hit rate\n");
     printf("  .clear_stats          Reset Buffer Pool statistics\n");
     printf("  .benchmark [N]        Run SeqScan vs IndexScan benchmark (default: 100000)\n");
+    printf("  .test                 Run the automated test suite\n");
     printf("  .exit / .quit         Flush pages to disk and exit\n\n");
     printf("SQL Features Supported:\n");
     printf("  CREATE TABLE tbl (col1 INT, col2 VARCHAR(len), ...);\n");
@@ -407,6 +396,16 @@ static void print_tables(catalog_t* catalog) {
 }
 
 int main(int argc, char* argv[]) {
+    if (argc > 1 && (strcmp(argv[1], "--test") == 0 || strcmp(argv[1], "-t") == 0)) {
+        return system(
+#if defined(_WIN32)
+            "test_suite.exe"
+#else
+            "./test_suite"
+#endif
+        );
+    }
+
     const char* db_file = "minisql.dat";
     if (argc > 1) {
         db_file = argv[1];
@@ -485,6 +484,17 @@ int main(int argc, char* argv[]) {
                 } else if (strncmp(p, ".clear_stats", 12) == 0) {
                     bpm_reset_stats(catalog->bpm);
                     printf("Buffer pool stats reset.\n\n");
+                } else if (strncmp(p, ".test", 5) == 0) {
+                    printf("Running automated test suite...\n");
+                    int res = system(
+#if defined(_WIN32)
+                        "test_suite.exe"
+#else
+                        "./test_suite"
+#endif
+                    );
+                    (void)res;
+                    printf("\n");
                 } else if (strncmp(p, ".benchmark", 10) == 0) {
                     size_t rows = 100000;
                     sscanf(p + 10, "%zu", &rows);

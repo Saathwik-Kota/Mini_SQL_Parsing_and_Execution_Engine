@@ -41,6 +41,20 @@ void bplus_tree_destroy(bplus_tree_t* tree) {
     free(tree);
 }
 
+static bplus_node_t* find_first_leaf(bplus_node_t* root, int64_t key) {
+    if (!root) return NULL;
+    bplus_node_t* curr = root;
+    while (!curr->is_leaf) {
+        int idx = 0;
+        while (idx < curr->num_keys && key > curr->keys[idx]) {
+            idx++;
+        }
+        curr = curr->internal.children[idx];
+        if (!curr) return NULL;
+    }
+    return curr;
+}
+
 static bplus_node_t* find_leaf(bplus_node_t* root, int64_t key) {
     if (!root) return NULL;
     bplus_node_t* curr = root;
@@ -60,20 +74,77 @@ bool bplus_tree_search(const bplus_tree_t* tree, int64_t key, rid_t* out_rid) {
         return false;
     }
 
-    bplus_node_t* leaf = find_leaf(tree->root, key);
+    bplus_node_t* leaf = find_first_leaf(tree->root, key);
     if (!leaf) return false;
 
-    for (int i = 0; i < leaf->num_keys; i++) {
-        if (leaf->keys[i] == key) {
-            *out_rid = leaf->leaf.rids[i];
-            return true;
+    bplus_node_t* curr = leaf;
+    while (curr) {
+        for (int i = 0; i < curr->num_keys; i++) {
+            if (curr->keys[i] == key) {
+                *out_rid = curr->leaf.rids[i];
+                return true;
+            }
+            if (curr->keys[i] > key) {
+                return false;
+            }
         }
-        if (leaf->keys[i] > key) {
-            break;
-        }
+        curr = curr->leaf.next;
     }
 
     return false;
+}
+
+size_t bplus_tree_find_all(const bplus_tree_t* tree, int64_t key, rid_t** out_rids) {
+    if (!tree || !tree->root || !out_rids) {
+        if (out_rids) *out_rids = NULL;
+        return 0;
+    }
+
+    bplus_node_t* leaf = find_first_leaf(tree->root, key);
+    if (!leaf) {
+        *out_rids = NULL;
+        return 0;
+    }
+
+    size_t capacity = 16;
+    size_t count = 0;
+    rid_t* results = (rid_t*)malloc(capacity * sizeof(rid_t));
+    if (!results) {
+        *out_rids = NULL;
+        return 0;
+    }
+
+    bplus_node_t* curr = leaf;
+    while (curr) {
+        for (int i = 0; i < curr->num_keys; i++) {
+            if (curr->keys[i] == key) {
+                if (count >= capacity) {
+                    capacity *= 2;
+                    rid_t* new_res = (rid_t*)realloc(results, capacity * sizeof(rid_t));
+                    if (!new_res) {
+                        free(results);
+                        *out_rids = NULL;
+                        return 0;
+                    }
+                    results = new_res;
+                }
+                results[count++] = curr->leaf.rids[i];
+            } else if (curr->keys[i] > key) {
+                goto done;
+            }
+        }
+        curr = curr->leaf.next;
+    }
+
+done:
+    if (count == 0) {
+        free(results);
+        *out_rids = NULL;
+        return 0;
+    }
+
+    *out_rids = results;
+    return count;
 }
 
 size_t bplus_tree_range_scan(const bplus_tree_t* tree, int64_t min_key, int64_t max_key, rid_t* out_rids, size_t max_results) {
@@ -81,7 +152,7 @@ size_t bplus_tree_range_scan(const bplus_tree_t* tree, int64_t min_key, int64_t 
         return 0;
     }
 
-    bplus_node_t* leaf = find_leaf(tree->root, min_key);
+    bplus_node_t* leaf = find_first_leaf(tree->root, min_key);
     if (!leaf) return 0;
 
     size_t count = 0;
@@ -463,29 +534,39 @@ static void fix_internal_underflow(bplus_tree_t* tree, bplus_node_t* node) {
 bool bplus_tree_delete(bplus_tree_t* tree, int64_t key, rid_t rid) {
     if (!tree || !tree->root) return false;
 
-    bplus_node_t* leaf = find_leaf(tree->root, key);
+    bplus_node_t* leaf = find_first_leaf(tree->root, key);
     if (!leaf) return false;
 
     int idx = -1;
-    for (int i = 0; i < leaf->num_keys; i++) {
-        if (leaf->keys[i] == key && leaf->leaf.rids[i].page_id == rid.page_id && leaf->leaf.rids[i].slot_num == rid.slot_num) {
-            idx = i;
-            break;
+    bplus_node_t* target_leaf = NULL;
+    bplus_node_t* curr = leaf;
+    while (curr) {
+        for (int i = 0; i < curr->num_keys; i++) {
+            if (curr->keys[i] == key &&
+                curr->leaf.rids[i].page_id == rid.page_id &&
+                curr->leaf.rids[i].slot_num == rid.slot_num) {
+                idx = i;
+                target_leaf = curr;
+                goto found;
+            } else if (curr->keys[i] > key) {
+                goto found;
+            }
         }
+        curr = curr->leaf.next;
     }
+found:
+    if (idx == -1 || !target_leaf) return false;
 
-    if (idx == -1) return false;
-
-    for (int i = idx; i < leaf->num_keys - 1; i++) {
-        leaf->keys[i] = leaf->keys[i + 1];
-        leaf->leaf.rids[i] = leaf->leaf.rids[i + 1];
+    for (int i = idx; i < target_leaf->num_keys - 1; i++) {
+        target_leaf->keys[i] = target_leaf->keys[i + 1];
+        target_leaf->leaf.rids[i] = target_leaf->leaf.rids[i + 1];
     }
-    leaf->num_keys--;
+    target_leaf->num_keys--;
     tree->size--;
 
-    if (leaf == tree->root) {
-        if (leaf->num_keys == 0) {
-            free(leaf);
+    if (target_leaf == tree->root) {
+        if (target_leaf->num_keys == 0) {
+            free(target_leaf);
             tree->root = NULL;
             tree->size = 0;
             tree->depth = 0;
@@ -493,8 +574,8 @@ bool bplus_tree_delete(bplus_tree_t* tree, int64_t key, rid_t rid) {
         return true;
     }
 
-    if (leaf->num_keys < BPLUS_MIN_KEYS) {
-        fix_leaf_underflow(tree, leaf);
+    if (target_leaf->num_keys < BPLUS_MIN_KEYS) {
+        fix_leaf_underflow(tree, target_leaf);
     }
 
     return true;

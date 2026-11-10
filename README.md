@@ -83,6 +83,7 @@ This project implements core RDBMS internals, including a slotted-page storage m
 - **Structure**: Multi-level balanced search tree with order $M = 8$.
 - **Leaf Nodes**: Contain sorted `(key, RID)` pairs and bidirectional sibling pointers (`next`, `prev`) for range scans.
 - **Internal Nodes**: Contain separator keys and child node pointers.
+- **Non-Unique / Duplicate Key Support**: The catalog permits indexing columns without requiring unique values. The B+ tree supports non-unique keys through contiguous ordering across leaf nodes. The `bplus_tree_find_all()` API and `IndexScanExecutor` retrieve and yield all matching records for any given key.
 - **Balancing Operations**:
   - Node splitting upon overflow ($N > M$).
   - Separator promotion up through parent hierarchy to dynamic root creation.
@@ -148,17 +149,19 @@ Empirical performance evaluation comparing Sequential Table Scans against B+ Tre
 |   |-- parser.h           # SQL tokenizer, AST nodes, and expression evaluator
 |   |-- planner.h          # Rule-based query planner and EXPLAIN tree printer
 |   `-- executor.h         # Volcano iterator interface and execution nodes
-`-- src/
-    |-- types.c            # Value constructors and comparison routines
-    |-- disk_manager.c     # Page-level disk read/write/allocation
-    |-- slotted_page.c     # Slotted-page tuple insertion, deletion, compaction
-    |-- buffer_pool.c      # Buffer pool frame hashing, LRU replacer, writeback
-    |-- bplus_tree.c       # B+ Tree node split, merge, search, range scans
-    |-- catalog.c          # Table heap insertion, record retrieval, indexing
-    |-- parser.c           # Handwritten recursive-descent SQL parser
-    |-- planner.c          # Rule-based access path optimizer
-    |-- executor.c         # Volcano iterator implementations
-    `-- main.c             # Interactive REPL, benchmark suite, stats reporting
+|-- src/
+|   |-- types.c            # Value constructors and comparison routines
+|   |-- disk_manager.c     # Page-level disk read/write/allocation
+|   |-- slotted_page.c     # Slotted-page tuple insertion, deletion, compaction
+|   |-- buffer_pool.c      # Buffer pool frame hashing, LRU replacer, writeback
+|   |-- bplus_tree.c       # B+ Tree node split, merge, search, range scans
+|   |-- catalog.c          # Table heap insertion, record retrieval, indexing
+|   |-- parser.c           # Handwritten recursive-descent SQL parser
+|   |-- planner.c          # Rule-based access path optimizer
+|   |-- executor.c         # Volcano iterator implementations
+|   `-- main.c             # Interactive REPL, benchmark suite, stats reporting
+`-- tests/
+    `-- test_suite.c       # Automated test suite (7 subsystems, 103 assertions)
 ```
 
 ---
@@ -183,6 +186,34 @@ gcc -Wall -Wextra -O2 -g -std=c99 -Iinclude -o mini_sql src/*.c
 ### Running the REPL
 ```bash
 ./mini_sql
+```
+
+### Running Automated Test Suite
+The project contains an end-to-end automated unit and integration test suite (`tests/test_suite.c`) covering all 7 engine subsystems:
+1. **Disk Manager**: Page allocation, block read/write operations, multi-page bounds.
+2. **Slotted Page**: Variable-length tuple serialization, slot allocation, tuple deletion, and defragmenting page compaction.
+3. **Buffer Pool**: LRU eviction verification under load (exceeding frame capacity), dirty page disk flushing, and cache hit rate tracking.
+4. **B+ Tree Indexing**: Node splits across leaf and internal nodes, non-unique duplicate keys across split boundaries (`bplus_tree_find_all`), and deletion/borrowing.
+5. **SQL Parser & AST**: Lexical analysis and AST generation for DDL, DML, WHERE predicates, ORDER BY, GROUP BY, aggregates, and joins.
+6. **Query Planner**: Access path optimization (rule-based selection of `PLAN_INDEX_SCAN` on indexed columns vs `PLAN_SEQ_SCAN`), and plan tree generation.
+7. **Volcano Execution Engine**: Full execution pipeline verification including SeqScan, IndexScan yielding non-unique duplicate keys, Filter, Project, Sort, Aggregate, Join, Update, and Delete.
+
+Run the test suite using GNU Make:
+```bash
+make test
+```
+Or directly:
+```bash
+gcc -Wall -Wextra -O2 -g -std=c99 -Iinclude -o test_suite tests/test_suite.c src/types.c src/disk_manager.c src/slotted_page.c src/buffer_pool.c src/bplus_tree.c src/catalog.c src/parser.c src/planner.c src/executor.c
+./test_suite
+```
+Or invoke directly via the CLI:
+```bash
+./mini_sql --test
+```
+Or within the REPL session:
+```
+minisql> .test
 ```
 
 ### Running Benchmarks
@@ -213,6 +244,7 @@ make valgrind
 | `.schema <table>` | Displays column definitions, types, and index metadata |
 | `.stats` | Prints buffer pool hit rate, requests, misses, and disk I/O |
 | `.clear_stats` | Resets buffer pool request and hit counters |
+| `.test` | Runs the internal automated test suite (103 assertions across 7 subsystems) |
 | `.benchmark [N]` | Runs automated benchmark with N rows (default: 100000) |
 | `.exit` / `.quit` | Synchronizes dirty pages to disk and terminates engine |
 
