@@ -161,7 +161,7 @@ Empirical performance evaluation comparing Sequential Table Scans against B+ Tre
 |   |-- executor.c         # Volcano iterator implementations
 |   `-- main.c             # Interactive REPL, benchmark suite, stats reporting
 `-- tests/
-    `-- test_suite.c       # Automated test suite (7 subsystems, 103 assertions)
+    `-- test_suite.c       # Automated test suite (7 subsystems, 117 assertions)
 ```
 
 ---
@@ -244,7 +244,7 @@ make valgrind
 | `.schema <table>` | Displays column definitions, types, and index metadata |
 | `.stats` | Prints buffer pool hit rate, requests, misses, and disk I/O |
 | `.clear_stats` | Resets buffer pool request and hit counters |
-| `.test` | Runs the internal automated test suite (103 assertions across 7 subsystems) |
+| `.test` | Runs the internal automated test suite (117 assertions across 7 subsystems) |
 | `.benchmark [N]` | Runs automated benchmark with N rows (default: 100000) |
 | `.exit` / `.quit` | Synchronizes dirty pages to disk and terminates engine |
 
@@ -283,4 +283,5 @@ EXPLAIN SELECT * FROM users WHERE age > 20;
 2. **Concurrency Control**: Engine is single-threaded. Adding latching on buffer frames and Two-Phase Locking (2PL) for serializable transactions is planned.
 3. **Secondary Index Persistence**: B+ Tree index structures are currently memory-backed and rebuilt from the table heap on catalog initialization. Serializing B+ tree nodes directly into index page frames is the next architectural milestone.
 4. **Cost-Based Optimization (CBO)**: Current optimizer uses a rule-based heuristic. Implementing table statistics (histograms) for cost-based join reordering will further optimize complex queries.
+5. **System Catalog & Cross-Session Schema Persistence (Page 0 Serialization)**: While raw 4KB slotted pages and record data are flushed and persisted to disk (`minisql.dat`), the system catalog (table schemas, column definitions, and root page pointers) is currently session-scoped in memory. Serializing the catalog metadata into a dedicated Page 0 meta-page for automatic schema rehydration across process restarts is planned as future work.
 
