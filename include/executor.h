@@ -12,6 +12,7 @@ struct executor_t {
     void (*init)(executor_t* self);
     bool (*next)(executor_t* self, tuple_t* out_tuple);
     void (*close)(executor_t* self);
+    void (*destroy)(executor_t* self);
 
     schema_t schema;
     void* state;

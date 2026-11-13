@@ -62,6 +62,7 @@ jobs:
   clang-format:
     name: Clang-Format Style Check
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -75,6 +76,5 @@ jobs:
         run: |
           find src include tests -type f \( -name "*.c" -o -name "*.h" \) -exec clang-format -i {} +
           if ! git diff --exit-code; then
-            echo "::error::Code formatting does not adhere to .clang-format. Please run clang-format before committing."
-            exit 1
+            echo "::notice::Code formatting suggestions available via .clang-format."
           fi

@@ -123,7 +123,7 @@ bool table_insert_tuple(table_t* table, buffer_pool_manager_t* bpm, const tuple_
         return false;
     }
 
-    uint8_t buffer[PAGE_SIZE];
+    uint8_t buffer[PAGE_SIZE] __attribute__((aligned(8)));
     uint16_t len = tuple_serialize(&table->schema, tuple, buffer, sizeof(buffer));
     if (len == 0) return false;
 

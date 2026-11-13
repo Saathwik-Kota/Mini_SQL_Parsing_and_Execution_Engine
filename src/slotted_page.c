@@ -66,7 +66,7 @@ void slotted_page_compact(void* page_data) {
         return;
     }
     slotted_page_header_t* header = slotted_page_get_header(page_data);
-    uint8_t temp[PAGE_SIZE];
+    uint8_t temp[PAGE_SIZE] __attribute__((aligned(8)));
     memset(temp, 0, PAGE_SIZE);
 
     slotted_page_header_t* temp_hdr = (slotted_page_header_t*)temp;

@@ -131,7 +131,18 @@ static bool filter_next(executor_t* self, tuple_t* out_tuple) {
 
 static void filter_close(executor_t* self) {
     filter_state_t* st = (filter_state_t*)self->state;
-    st->child->close(st->child);
+    if (st && st->child && st->child->close) {
+        st->child->close(st->child);
+    }
+}
+
+static void filter_destroy(executor_t* self) {
+    if (!self || !self->state) return;
+    filter_state_t* st = (filter_state_t*)self->state;
+    if (st->child) {
+        executor_destroy(st->child);
+        st->child = NULL;
+    }
 }
 
 /* ==================== PROJECT EXECUTOR ==================== */
@@ -175,7 +186,18 @@ static bool project_next(executor_t* self, tuple_t* out_tuple) {
 
 static void project_close(executor_t* self) {
     project_state_t* st = (project_state_t*)self->state;
-    st->child->close(st->child);
+    if (st && st->child && st->child->close) {
+        st->child->close(st->child);
+    }
+}
+
+static void project_destroy(executor_t* self) {
+    if (!self || !self->state) return;
+    project_state_t* st = (project_state_t*)self->state;
+    if (st->child) {
+        executor_destroy(st->child);
+        st->child = NULL;
+    }
 }
 
 /* ==================== NESTED LOOP JOIN EXECUTOR ==================== */
@@ -235,8 +257,21 @@ static bool join_next(executor_t* self, tuple_t* out_tuple) {
 
 static void join_close(executor_t* self) {
     join_state_t* st = (join_state_t*)self->state;
-    st->left->close(st->left);
-    st->right->close(st->right);
+    if (st && st->left && st->left->close) st->left->close(st->left);
+    if (st && st->right && st->right->close) st->right->close(st->right);
+}
+
+static void join_destroy(executor_t* self) {
+    if (!self || !self->state) return;
+    join_state_t* st = (join_state_t*)self->state;
+    if (st->left) {
+        executor_destroy(st->left);
+        st->left = NULL;
+    }
+    if (st->right) {
+        executor_destroy(st->right);
+        st->right = NULL;
+    }
 }
 
 /* ==================== SORT EXECUTOR ==================== */
@@ -298,11 +333,27 @@ static bool sort_next(executor_t* self, tuple_t* out_tuple) {
 
 static void sort_close(executor_t* self) {
     sort_state_t* st = (sort_state_t*)self->state;
+    if (st && st->child && st->child->close) {
+        st->child->close(st->child);
+    }
     free(st->buffer);
     st->buffer = NULL;
     st->count = 0;
     st->capacity = 0;
     st->cursor = 0;
+}
+
+static void sort_destroy(executor_t* self) {
+    if (!self || !self->state) return;
+    sort_state_t* st = (sort_state_t*)self->state;
+    if (st->buffer) {
+        free(st->buffer);
+        st->buffer = NULL;
+    }
+    if (st->child) {
+        executor_destroy(st->child);
+        st->child = NULL;
+    }
 }
 
 /* ==================== AGGREGATE EXECUTOR ==================== */
@@ -394,8 +445,20 @@ static bool aggregate_next(executor_t* self, tuple_t* out_tuple) {
 
 static void aggregate_close(executor_t* self) {
     aggregate_state_t* st = (aggregate_state_t*)self->state;
+    if (st && st->child && st->child->close) {
+        st->child->close(st->child);
+    }
     st->num_groups = 0;
     st->cursor = 0;
+}
+
+static void aggregate_destroy(executor_t* self) {
+    if (!self || !self->state) return;
+    aggregate_state_t* st = (aggregate_state_t*)self->state;
+    if (st->child) {
+        executor_destroy(st->child);
+        st->child = NULL;
+    }
 }
 
 /* ==================== INSERT EXECUTOR ==================== */
@@ -487,8 +550,19 @@ static bool update_next(executor_t* self, tuple_t* out_tuple) {
 
 static void update_close(executor_t* self) {
     update_state_t* st = (update_state_t*)self->state;
-    st->child->close(st->child);
+    if (st && st->child && st->child->close) {
+        st->child->close(st->child);
+    }
     st->done = true;
+}
+
+static void update_destroy(executor_t* self) {
+    if (!self || !self->state) return;
+    update_state_t* st = (update_state_t*)self->state;
+    if (st->child) {
+        executor_destroy(st->child);
+        st->child = NULL;
+    }
 }
 
 /* ==================== DELETE EXECUTOR ==================== */
@@ -541,8 +615,19 @@ static bool delete_next(executor_t* self, tuple_t* out_tuple) {
 
 static void delete_close(executor_t* self) {
     delete_state_t* st = (delete_state_t*)self->state;
-    st->child->close(st->child);
+    if (st && st->child && st->child->close) {
+        st->child->close(st->child);
+    }
     st->done = true;
+}
+
+static void delete_destroy(executor_t* self) {
+    if (!self || !self->state) return;
+    delete_state_t* st = (delete_state_t*)self->state;
+    if (st->child) {
+        executor_destroy(st->child);
+        st->child = NULL;
+    }
 }
 
 /* ==================== EXECUTOR CREATION FACTORY ==================== */
@@ -591,6 +676,7 @@ executor_t* executor_create(catalog_t* catalog, const plan_node_t* plan) {
             exec->init = filter_init;
             exec->next = filter_next;
             exec->close = filter_close;
+            exec->destroy = filter_destroy;
             break;
         }
 
@@ -603,6 +689,7 @@ executor_t* executor_create(catalog_t* catalog, const plan_node_t* plan) {
             exec->init = project_init;
             exec->next = project_next;
             exec->close = project_close;
+            exec->destroy = project_destroy;
             break;
         }
 
@@ -615,6 +702,7 @@ executor_t* executor_create(catalog_t* catalog, const plan_node_t* plan) {
             exec->init = join_init;
             exec->next = join_next;
             exec->close = join_close;
+            exec->destroy = join_destroy;
             break;
         }
 
@@ -628,6 +716,7 @@ executor_t* executor_create(catalog_t* catalog, const plan_node_t* plan) {
             exec->init = sort_init;
             exec->next = sort_next;
             exec->close = sort_close;
+            exec->destroy = sort_destroy;
             break;
         }
 
@@ -650,6 +739,7 @@ executor_t* executor_create(catalog_t* catalog, const plan_node_t* plan) {
             exec->init = aggregate_init;
             exec->next = aggregate_next;
             exec->close = aggregate_close;
+            exec->destroy = aggregate_destroy;
             break;
         }
 
@@ -663,6 +753,7 @@ executor_t* executor_create(catalog_t* catalog, const plan_node_t* plan) {
             exec->init = insert_init;
             exec->next = insert_next;
             exec->close = insert_close;
+            exec->destroy = NULL;
             break;
         }
 
@@ -677,6 +768,7 @@ executor_t* executor_create(catalog_t* catalog, const plan_node_t* plan) {
             exec->init = update_init;
             exec->next = update_next;
             exec->close = update_close;
+            exec->destroy = update_destroy;
             break;
         }
 
@@ -689,6 +781,7 @@ executor_t* executor_create(catalog_t* catalog, const plan_node_t* plan) {
             exec->init = delete_init;
             exec->next = delete_next;
             exec->close = delete_close;
+            exec->destroy = delete_destroy;
             break;
         }
     }
@@ -701,6 +794,10 @@ void executor_destroy(executor_t* exec) {
 
     if (exec->close) {
         exec->close(exec);
+    }
+
+    if (exec->destroy) {
+        exec->destroy(exec);
     }
 
     free(exec->state);

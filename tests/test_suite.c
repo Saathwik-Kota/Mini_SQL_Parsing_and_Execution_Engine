@@ -67,12 +67,12 @@ static void test_disk_manager(void) {
     TEST_ASSERT(p0 == 0, "First allocated page must be 0");
     TEST_ASSERT(disk_manager_get_num_pages(dm) == 1, "Page count should be 1");
 
-    uint8_t write_buf[PAGE_SIZE];
+    uint8_t write_buf[PAGE_SIZE] __attribute__((aligned(8)));
     memset(write_buf, 0xAB, PAGE_SIZE);
     bool wok = disk_manager_write_page(dm, p0, write_buf);
     TEST_ASSERT(wok, "disk_manager_write_page failed");
 
-    uint8_t read_buf[PAGE_SIZE];
+    uint8_t read_buf[PAGE_SIZE] __attribute__((aligned(8)));
     memset(read_buf, 0, PAGE_SIZE);
     bool rok = disk_manager_read_page(dm, p0, read_buf);
     TEST_ASSERT(rok, "disk_manager_read_page failed");
@@ -98,7 +98,7 @@ static void test_disk_manager(void) {
 /* TEST 2: Slotted Page Storage & Compaction                                 */
 /* ========================================================================= */
 static void test_slotted_page_and_compaction(void) {
-    uint8_t page[PAGE_SIZE];
+    uint8_t page[PAGE_SIZE] __attribute__((aligned(8)));
     slotted_page_init(page, 42);
 
     const slotted_page_header_t* hdr = slotted_page_get_header_const(page);
@@ -120,7 +120,7 @@ static void test_slotted_page_and_compaction(void) {
     t1.values[0] = value_make_int(101);
     t1.values[1] = value_make_str("Variable length record alpha");
 
-    uint8_t buf1[PAGE_SIZE];
+    uint8_t buf1[PAGE_SIZE] __attribute__((aligned(8)));
     uint16_t len1 = tuple_serialize(&schema, &t1, buf1, sizeof(buf1));
     TEST_ASSERT(len1 > 0, "Serialization of tuple 1 succeeded");
 
@@ -132,7 +132,7 @@ static void test_slotted_page_and_compaction(void) {
     t2.num_values = 2;
     t2.values[0] = value_make_int(102);
     t2.values[1] = value_make_str("Beta record with different length");
-    uint8_t buf2[PAGE_SIZE];
+    uint8_t buf2[PAGE_SIZE] __attribute__((aligned(8)));
     uint16_t len2 = tuple_serialize(&schema, &t2, buf2, sizeof(buf2));
     bool ok1 = slotted_page_insert_tuple(page, buf2, len2, &s1);
     TEST_ASSERT(ok1 && s1 == 1, "Inserted slot 1");
@@ -141,7 +141,7 @@ static void test_slotted_page_and_compaction(void) {
     t3.num_values = 2;
     t3.values[0] = value_make_int(103);
     t3.values[1] = value_make_str("Gamma record payload");
-    uint8_t buf3[PAGE_SIZE];
+    uint8_t buf3[PAGE_SIZE] __attribute__((aligned(8)));
     uint16_t len3 = tuple_serialize(&schema, &t3, buf3, sizeof(buf3));
     bool ok2 = slotted_page_insert_tuple(page, buf3, len3, &s2);
     TEST_ASSERT(ok2 && s2 == 2, "Inserted slot 2");
@@ -149,7 +149,7 @@ static void test_slotted_page_and_compaction(void) {
 
     /* Verify tuple reading */
     tuple_t read_t;
-    uint8_t read_buf[PAGE_SIZE];
+    uint8_t read_buf[PAGE_SIZE] __attribute__((aligned(8)));
     uint16_t rlen = 0;
     bool gok = slotted_page_get_tuple(page, s1, read_buf, &rlen);
     TEST_ASSERT(gok, "Get tuple slot 1 succeeded");

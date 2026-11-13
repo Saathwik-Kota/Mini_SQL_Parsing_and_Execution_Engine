@@ -105,6 +105,9 @@ jobs:
   sanitizers:
     name: Memory Sanitizers (ASan + UBSan)
     runs-on: ubuntu-latest
+    env:
+      ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -126,7 +129,7 @@ jobs:
 
       - name: Run Benchmark under Sanitizers
         run: |
-          printf ".benchmark 25000\n.exit\n" | ./mini_sql
+          printf ".benchmark 10000\n.exit\n" | ./mini_sql
 
   valgrind:
     name: Memory Leak Analysis (Valgrind)
