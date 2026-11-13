@@ -35,6 +35,8 @@ tests/%.o: tests/%.c
 $(TEST_TARGET_BIN): $(TEST_SRC)
 	$(CC) $(ALL_CFLAGS) -o $@ $^
 
+test_suite: $(TEST_TARGET_BIN)
+
 test: $(TEST_TARGET_BIN)
 	@echo Running automated database test suite...
 	./$(TEST_TARGET_BIN)
@@ -55,4 +57,4 @@ valgrind-test: $(TEST_TARGET_BIN)
 clean:
 	@rm -f src/*.o tests/*.o $(TARGET_BIN) $(TARGET) $(TEST_TARGET_BIN) $(TEST_TARGET) minisql.dat test_*.dat 2>/dev/null || $(RM) src\*.o tests\*.o $(TARGET_BIN) $(TARGET) $(TEST_TARGET_BIN) $(TEST_TARGET) minisql.dat test_*.dat 2>nul || true
 
-.PHONY: all clean run benchmark valgrind valgrind-test test
+.PHONY: all clean run benchmark valgrind valgrind-test test test_suite

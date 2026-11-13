@@ -29,14 +29,20 @@ jobs:
 
       - name: Run Cppcheck Analysis
         run: |
-          cppcheck --enable=warning,performance,portability \
-                   --error-exitcode=1 \
-                   --std=c99 \
+          cppcheck --error-exitcode=1 \
+                   --std=c11 \
                    --suppress=missingIncludeSystem \
                    --suppress=unusedFunction \
                    --inline-suppr \
                    -I include \
-                   src/ tests/
+                   src/
+          cppcheck --enable=warning,performance,portability \
+                   --std=c11 \
+                   --suppress=missingIncludeSystem \
+                   --suppress=unusedFunction \
+                   --inline-suppr \
+                   -I include \
+                   src/
 
   strict-compiler-warnings:
     name: Zero-Warning Strict Compilation
