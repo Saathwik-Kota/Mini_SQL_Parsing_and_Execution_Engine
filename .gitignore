@@ -1,33 +1,168 @@
-# Compiled object files and libraries
+# ==============================================================================
+# Mini SQL Engine - .gitignore
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Compiled Object Files, Libraries & Intermediates
+# ------------------------------------------------------------------------------
 *.o
 *.obj
+*.lo
+*.la
+*.al
 *.so
+*.so.*
 *.dylib
+*.dll
 *.a
+*.lib
+*.i
+*.s
 
-# Executables
+# ------------------------------------------------------------------------------
+# Executables & Test Binaries
+# ------------------------------------------------------------------------------
 mini_sql
 mini_sql.exe
 test_suite
 test_suite.exe
+*.exe
+*.out
+*.bin
+*.elf
+*.app
+
+# Build Output Directories
 build/
+bin/
+dist/
+out/
+target/
+release-assets/
 
-# Database data files and indexes
+# ------------------------------------------------------------------------------
+# Database Runtime, Pages, Logs & Storage Files
+# ------------------------------------------------------------------------------
+minisql.dat
+test_*.dat
 *.dat
-*.idx
 *.db
+*.idx
+*.wal
 *.log
+*.pid
+*.lock
+*.sqlite
+*.sqlite3
 
-# Debug symbols and core dumps
+# ------------------------------------------------------------------------------
+# Debugging, Sanitizers, Memory Dumps & Profiling
+# ------------------------------------------------------------------------------
 *.dSYM/
+*.su
+*.idb
+*.pdb
+*.ilk
 core
 core.*
+vgcore.*
+callgrind.out.*
+massif.out.*
+gmon.out
+*.gcda
+*.gcno
+*.gcov
+coverage/
+*.asan
+*.ubsan
 
-# IDE, Tooling, and Compilation Databases
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+# ------------------------------------------------------------------------------
+# Language Server, Tooling & Compilation Databases
+# ------------------------------------------------------------------------------
 compile_commands.json
+compile_flags.txt
+.clangd
 .clangd/
 .cache/
+.clang-tidy-cache/
+
+# ------------------------------------------------------------------------------
+# IDEs and Text Editors
+# ------------------------------------------------------------------------------
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# JetBrains (CLion, IntelliJ, etc.)
+.idea/
+*.iml
+cmake-build-*/
+
+# Visual Studio
+.vs/
+*.vcxproj*
+*.sln
+x64/
+x86/
+Debug/
+Release/
+*.user
+
+# Vim / Emacs / Sublime Text / Nano
+*~
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+.#*
+#*#
+
+# Eclipse
+.project
+.cproject
+.settings/
+
+# ------------------------------------------------------------------------------
+# Operating System Artifacts
+# ------------------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.directory
+.fuse_hidden*
+.Trash-*
+
+# ------------------------------------------------------------------------------
+# Archive & Distribution Bundles
+# ------------------------------------------------------------------------------
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.bz2
+SHA256SUMS.txt
+
+# ------------------------------------------------------------------------------
+# Temporary & Backup Files
+# ------------------------------------------------------------------------------
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig
+*.rej

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Mini SQL Discussions & Architecture Questions
+    url: https://github.com/Saathwik-Kota/Mini_SQL_Parsing_and_Execution_Engine/discussions
+    about: Ask architectural questions, discuss database algorithms, or share benchmark results.

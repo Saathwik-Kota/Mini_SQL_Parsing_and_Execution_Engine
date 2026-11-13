@@ -1,0 +1,80 @@
+name: Code Quality & Lint
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cppcheck:
+    name: Cppcheck Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Cppcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cppcheck
+
+      - name: Run Cppcheck Analysis
+        run: |
+          cppcheck --enable=warning,performance,portability \
+                   --error-exitcode=1 \
+                   --std=c99 \
+                   --suppress=missingIncludeSystem \
+                   --suppress=unusedFunction \
+                   --inline-suppr \
+                   -I include \
+                   src/ tests/
+
+  strict-compiler-warnings:
+    name: Zero-Warning Strict Compilation
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [ gcc, clang ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.compiler }} make
+
+      - name: Compile with -Werror
+        run: |
+          make clean
+          make all CC=${{ matrix.compiler }} CFLAGS="-Wall -Wextra -Werror -O2 -g -std=c99"
+          make test_suite CC=${{ matrix.compiler }} CFLAGS="-Wall -Wextra -Werror -O2 -g -std=c99"
+
+  clang-format:
+    name: Clang-Format Style Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+
+      - name: Check Code Formatting
+        run: |
+          find src include tests -type f \( -name "*.c" -o -name "*.h" \) -exec clang-format -i {} +
+          if ! git diff --exit-code; then
+            echo "::error::Code formatting does not adhere to .clang-format. Please run clang-format before committing."
+            exit 1
+          fi

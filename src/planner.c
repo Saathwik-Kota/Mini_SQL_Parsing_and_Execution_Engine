@@ -163,9 +163,9 @@ static plan_node_t* plan_select(catalog_t* catalog, const select_stmt_t* stmt) {
             if (alias[0] != '\0') {
                 safe_strcpy(c->name, alias, MAX_COLUMN_NAME);
             } else if (stmt->projections[i].type == PROJ_AGG_COUNT) {
-                snprintf(c->name, sizeof(c->name), "COUNT(%s)", col_name[0] ? col_name : "*");
+                snprintf(c->name, sizeof(c->name), "COUNT(%.*s)", (int)(sizeof(c->name) - 8), col_name[0] ? col_name : "*");
             } else if (stmt->projections[i].type == PROJ_AGG_SUM) {
-                snprintf(c->name, sizeof(c->name), "SUM(%s)", col_name);
+                snprintf(c->name, sizeof(c->name), "SUM(%.*s)", (int)(sizeof(c->name) - 6), col_name);
             } else {
                 safe_strcpy(c->name, col_name, MAX_COLUMN_NAME);
             }

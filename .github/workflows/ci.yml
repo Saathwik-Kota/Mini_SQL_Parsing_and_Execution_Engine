@@ -1,0 +1,163 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & Test (${{ matrix.os }} - ${{ matrix.compiler }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            compiler: gcc
+            cc: gcc
+          - os: ubuntu-latest
+            compiler: clang
+            cc: clang
+          - os: macos-latest
+            compiler: clang
+            cc: clang
+          - os: windows-latest
+            compiler: mingw-gcc
+            cc: gcc
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Clang & Make (Linux)
+        if: matrix.os == 'ubuntu-latest' && matrix.compiler == 'clang'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang make
+
+      - name: Set up MSYS2 UCRT64 GCC & Make (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-make
+
+      - name: Build Database Engine & Test Suite (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          make clean
+          make all CC=${{ matrix.cc }}
+          make test_suite CC=${{ matrix.cc }}
+
+      - name: Run Automated Test Suite (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          ./test_suite
+
+      - name: Run Automated Benchmark (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          printf ".benchmark 50000\n.exit\n" | ./mini_sql
+
+      - name: Build Database Engine & Test Suite (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          make clean
+          make all CC=gcc
+          make test_suite CC=gcc
+
+      - name: Run Automated Test Suite (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          ./test_suite.exe
+
+      - name: Run Automated Benchmark (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          printf ".benchmark 50000\n.exit\n" | ./mini_sql.exe
+
+      - name: Upload Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mini-sql-${{ matrix.os }}-${{ matrix.compiler }}
+          path: |
+            mini_sql
+            mini_sql.exe
+          if-no-files-found: ignore
+          retention-days: 7
+
+  sanitizers:
+    name: Memory Sanitizers (ASan + UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc make
+
+      - name: Compile with AddressSanitizer and UndefinedBehaviorSanitizer
+        run: |
+          make clean
+          make all EXTRA_CFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          make test_suite EXTRA_CFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+
+      - name: Run Subsystem Test Suite under Sanitizers
+        run: |
+          ./test_suite
+
+      - name: Run Benchmark under Sanitizers
+        run: |
+          printf ".benchmark 25000\n.exit\n" | ./mini_sql
+
+  valgrind:
+    name: Memory Leak Analysis (Valgrind)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Valgrind & Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc make valgrind
+
+      - name: Compile with Debug Symbols
+        run: |
+          make clean
+          make all CFLAGS="-Wall -Wextra -O0 -g -std=c99"
+          make test_suite CFLAGS="-Wall -Wextra -O0 -g -std=c99"
+
+      - name: Valgrind Automated Test Suite Verification
+        run: |
+          valgrind --leak-check=full \
+                   --show-leak-kinds=all \
+                   --track-origins=yes \
+                   --error-exitcode=1 \
+                   ./test_suite
+
+      - name: Valgrind REPL & Benchmark Verification
+        run: |
+          printf ".benchmark 2000\n.exit\n" | valgrind --leak-check=full \
+                   --show-leak-kinds=all \
+                   --track-origins=yes \
+                   --error-exitcode=1 \
+                   ./mini_sql

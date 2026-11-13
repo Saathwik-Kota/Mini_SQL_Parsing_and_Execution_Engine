@@ -1,5 +1,12 @@
 # Mini SQL Parsing & Execution Engine
 
+[![CI](https://github.com/Saathwik-Kota/Mini_SQL_Parsing_and_Execution_Engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Saathwik-Kota/Mini_SQL_Parsing_and_Execution_Engine/actions/workflows/ci.yml)
+[![CodeQL Security](https://github.com/Saathwik-Kota/Mini_SQL_Parsing_and_Execution_Engine/actions/workflows/codeql.yml/badge.svg)](https://github.com/Saathwik-Kota/Mini_SQL_Parsing_and_Execution_Engine/actions/workflows/codeql.yml)
+[![Code Quality & Lint](https://github.com/Saathwik-Kota/Mini_SQL_Parsing_and_Execution_Engine/actions/workflows/lint.yml/badge.svg)](https://github.com/Saathwik-Kota/Mini_SQL_Parsing_and_Execution_Engine/actions/workflows/lint.yml)
+[![Standard](https://img.shields.io/badge/C-C99-00599C?logo=c)](https://en.wikipedia.org/wiki/C99)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-blue)](https://github.com/Saathwik-Kota/Mini_SQL_Parsing_and_Execution_Engine)
+
 A production-grade, relational database management engine implemented entirely from scratch in pure ANSI C99 with zero external dependencies.
 
 This project implements core RDBMS internals, including a slotted-page storage manager supporting variable-length records with on-line page compaction, an in-memory buffer pool manager with Least Recently Used (LRU) eviction and write-back caching, an order-M B+ Tree index with dynamic split/merge balancing, a rule-based query planner and optimizer with access-path selection, and a pull-based Volcano iterator execution engine.
@@ -227,10 +234,34 @@ minisql> .benchmark 100000
 ```
 
 ### Valgrind Memory Verification
-Run memory leak and pointer correctness tests:
+Run memory leak and pointer correctness tests across the automated test suite:
+```bash
+make valgrind-test
+```
+Or test the interactive REPL and benchmark under Valgrind:
 ```bash
 make valgrind
 ```
+
+---
+
+## Continuous Integration & Quality Assurance
+
+The repository includes enterprise-grade GitHub Actions workflows to ensure reliability, correctness, and memory safety across platforms:
+
+- **Multi-Platform Matrix (`.github/workflows/ci.yml`)**:
+  - Compiles and runs the full test suite and benchmark on **Ubuntu (GCC & Clang)**, **macOS (Clang)**, and **Windows (MinGW GCC)**.
+  - Generates downloadable standalone binary build artifacts for all platforms.
+- **Memory Safety Sanitizers**:
+  - Automatically compiles and executes test suites under **AddressSanitizer (ASan)** and **UndefinedBehaviorSanitizer (UBSan)** to detect buffer overruns, use-after-free, and unaligned accesses.
+- **Dynamic Analysis with Valgrind**:
+  - Runs automated leak detection on every push and pull request, requiring **0 byte memory leaks** across all 7 database subsystems and the REPL benchmark.
+- **CodeQL Security Analysis (`.github/workflows/codeql.yml`)**:
+  - GitHub Advanced Security static analysis scanning for CWE security vulnerabilities and unchecked memory flaws.
+- **Static Analysis & Linting (`.github/workflows/lint.yml`)**:
+  - Enforces zero compiler warnings with `-Wall -Wextra -Werror` and verifies code quality via **Cppcheck** and **clang-format**.
+- **Automated Multi-Platform Release (`.github/workflows/release.yml`)**:
+  - Automatically packages and signs release archives (`.tar.gz` and `.zip`) with SHA-256 checksums on tag releases.
 
 ---
 
@@ -284,4 +315,10 @@ EXPLAIN SELECT * FROM users WHERE age > 20;
 3. **Secondary Index Persistence**: B+ Tree index structures are currently memory-backed and rebuilt from the table heap on catalog initialization. Serializing B+ tree nodes directly into index page frames is the next architectural milestone.
 4. **Cost-Based Optimization (CBO)**: Current optimizer uses a rule-based heuristic. Implementing table statistics (histograms) for cost-based join reordering will further optimize complex queries.
 5. **System Catalog & Cross-Session Schema Persistence (Page 0 Serialization)**: While raw 4KB slotted pages and record data are flushed and persisted to disk (`minisql.dat`), the system catalog (table schemas, column definitions, and root page pointers) is currently session-scoped in memory. Serializing the catalog metadata into a dedicated Page 0 meta-page for automatic schema rehydration across process restarts is planned as future work.
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 

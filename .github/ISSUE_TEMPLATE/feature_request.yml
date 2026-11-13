@@ -1,0 +1,46 @@
+name: Feature Request
+description: Propose an architecture improvement, optimization, or new SQL feature
+title: "[FEATURE]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting an improvement or architectural feature for Mini SQL!
+  - type: dropdown
+    id: component
+    attributes:
+      label: Subsystem Target
+      description: Which engine component does this feature primarily relate to?
+      options:
+        - "Storage Engine & Slotted Pages"
+        - "Buffer Pool Manager (LRU/Clock)"
+        - "B+ Tree Indexing"
+        - "SQL Parser & AST"
+        - "Query Planner & Optimizer (CBO / Heuristic)"
+        - "Volcano Execution Engine (Iterators / Joins)"
+        - "Concurrency & Transaction Logging (WAL/ARIES)"
+        - "REPL / CLI Tooling"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Motivation
+      description: Is your feature request related to a specific limitation or performance bottleneck?
+      placeholder: Describe why this addition is needed.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Implementation / Architecture
+      description: Describe the design or data structure changes you have in mind.
+      placeholder: Detailed description of the design, interfaces, or algorithmic changes.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative designs or approaches considered?

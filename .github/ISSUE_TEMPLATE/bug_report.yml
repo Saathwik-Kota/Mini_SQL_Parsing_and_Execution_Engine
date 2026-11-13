@@ -1,0 +1,48 @@
+name: Bug Report
+description: Report an issue or unexpected behavior in Mini SQL
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue! Please provide as much context as possible to help us reproduce and diagnose the bug.
+  - type: input
+    id: environment
+    attributes:
+      label: Operating System & Compiler
+      description: What OS and C compiler (and version) are you running?
+      placeholder: e.g. Ubuntu 24.04 (GCC 14.2), macOS Sequoia (Apple Clang 16), Windows 11 (MinGW GCC 14)
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Provide the SQL queries or CLI commands that trigger the bug.
+      placeholder: |
+        1. Start engine: `./mini_sql`
+        2. Run: `CREATE TABLE test (id INT, name VARCHAR(32));`
+        3. Run: `...`
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened (e.g. error message, incorrect query output, segfault, assertion failure).
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Valgrind Output (if applicable)
+      description: Paste any relevant terminal logs, stack traces, or Valgrind reports.
+      render: shell
