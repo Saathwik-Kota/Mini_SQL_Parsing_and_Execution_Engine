@@ -158,8 +158,10 @@ static void execute_statement(catalog_t* catalog, const statement_t* stmt, const
     tuple_t t;
     while (exec->next(exec, &t)) {
         if (count >= capacity) {
-            capacity *= 2;
-            results = (tuple_t*)realloc(results, capacity * sizeof(tuple_t));
+            size_t new_cap = capacity * 2;
+            tuple_t* new_res = (tuple_t*)realloc(results, new_cap * sizeof(tuple_t));
+            if (new_res) results = new_res;
+            capacity = new_cap;
         }
         results[count++] = t;
     }

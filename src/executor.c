@@ -308,8 +308,12 @@ static void sort_init(executor_t* self) {
     tuple_t t;
     while (st->child->next(st->child, &t)) {
         if (st->count >= st->capacity) {
-            st->capacity *= 2;
-            st->buffer = (tuple_t*)realloc(st->buffer, st->capacity * sizeof(tuple_t));
+            size_t new_cap = st->capacity * 2;
+            tuple_t* new_buf = (tuple_t*)realloc(st->buffer, new_cap * sizeof(tuple_t));
+            if (new_buf) {
+                st->buffer = new_buf;
+                st->capacity = new_cap;
+            }
         }
         st->buffer[st->count++] = t;
     }
@@ -522,9 +526,12 @@ static bool update_next(executor_t* self, tuple_t* out_tuple) {
 
     while (st->child->next(st->child, &t)) {
         if (count >= capacity) {
-            capacity *= 2;
-            rids_to_update = (rid_t*)realloc(rids_to_update, capacity * sizeof(rid_t));
-            new_tuples = (tuple_t*)realloc(new_tuples, capacity * sizeof(tuple_t));
+            size_t new_cap = capacity * 2;
+            rid_t* new_rids = (rid_t*)realloc(rids_to_update, new_cap * sizeof(rid_t));
+            tuple_t* new_tups = (tuple_t*)realloc(new_tuples, new_cap * sizeof(tuple_t));
+            if (new_rids) rids_to_update = new_rids;
+            if (new_tups) new_tuples = new_tups;
+            capacity = new_cap;
         }
         rids_to_update[count] = t.rid;
         t.values[st->set_col_idx] = st->new_val;
@@ -592,8 +599,10 @@ static bool delete_next(executor_t* self, tuple_t* out_tuple) {
 
     while (st->child->next(st->child, &t)) {
         if (count >= capacity) {
-            capacity *= 2;
-            rids_to_delete = (rid_t*)realloc(rids_to_delete, capacity * sizeof(rid_t));
+            size_t new_cap = capacity * 2;
+            rid_t* new_rids = (rid_t*)realloc(rids_to_delete, new_cap * sizeof(rid_t));
+            if (new_rids) rids_to_delete = new_rids;
+            capacity = new_cap;
         }
         rids_to_delete[count++] = t.rid;
     }

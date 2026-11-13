@@ -333,7 +333,7 @@ bool bpm_flush_page(buffer_pool_manager_t* bpm, page_id_t page_id) {
 }
 
 void bpm_flush_all(buffer_pool_manager_t* bpm) {
-    if (!bpm) return;
+    if (!bpm || !bpm->frames || !bpm->dm) return;
 
     for (size_t i = 0; i < bpm->pool_size; i++) {
         frame_t* frame = &bpm->frames[i];
