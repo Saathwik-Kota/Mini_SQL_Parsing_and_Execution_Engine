@@ -93,7 +93,7 @@ jobs:
           printf ".benchmark 50000\n.exit\n" | ./mini_sql.exe
 
       - name: Upload Binary Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mini-sql-${{ matrix.os }}-${{ matrix.compiler }}
           path: |
